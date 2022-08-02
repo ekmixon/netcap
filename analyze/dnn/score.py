@@ -102,7 +102,7 @@ def run():
             print("[INFO] Shape when encoding dataset:", df.shape)
             encode_columns(df, arguments.resultColumn, arguments.lstm, arguments.debug)
             print("[INFO] Shape AFTER encoding dataset:", df.shape)
-        
+
         if arguments.encodeCategoricals:
             print("[INFO] Shape when encoding dataset:", df.shape)
             encode_categorical_columns(df, arguments.features)    
@@ -110,7 +110,7 @@ def run():
 
         batchSize = arguments.batchSize
         for batch_index in range(0, df.shape[0], batchSize):
-            
+
             dfCopy = df[batch_index:batch_index+batchSize]
 
             # skip leftover that does not reach batch size
@@ -118,7 +118,10 @@ def run():
                 leftover = dfCopy
                 continue
 
-            print("[INFO] processing batch {}-{}/{}".format(batch_index, batch_index+batchSize, df.shape[0]))
+            print(
+                f"[INFO] processing batch {batch_index}-{batch_index + batchSize}/{df.shape[0]}"
+            )
+
             eval_dnn(dfCopy)
             leftover = None
 
@@ -126,7 +129,7 @@ buf_size = 512
 stop_count = 0
 num_datagrams = 0
 
-datagrams = list()
+datagrams = []
 
 def create_unix_socket(name):
 
@@ -177,8 +180,7 @@ def create_unix_socket(name):
 
     while True:
         global num_datagrams
-        datagram = sock.recv(buf_size)
-        if datagram:
+        if datagram := sock.recv(buf_size):
             if num_datagrams != 0 and num_datagrams % arguments.batchSize == 0:
 
                 # create the pandas DataFrame
@@ -206,20 +208,18 @@ def create_unix_socket(name):
                 eval_dnn(df)
 
                 # reset datagrams
-                datagrams = list()
+                datagrams = []
 
             for data in datagram.split(b'\n'):
                 if data != b'':
                     arr = data.split(b',')
-                    if len(arr) != 19:
-                        # TODO: make configurable
-                        #print(arr, len(arr))
-                        if arr[0].startswith(b'Timestamp'): 
-                            epoch += 1
-                            print("epoch", epoch)
-                    else:
+                    if len(arr) == 19:
                         num_datagrams += 1
                         datagrams.append(arr)
+
+                    elif arr[0].startswith(b'Timestamp'): 
+                        epoch += 1
+                        print("epoch", epoch)
 
             # TODO: dispatch alert as soon we have anything to report
             #send_alert()
@@ -241,7 +241,7 @@ def process(df):
         # get current loss
         lossValues = history.history['val_loss']
         currentLoss = lossValues[-1]
-        print(colored("[LOSS] " + str(currentLoss),'yellow'))
+        print(colored(f"[LOSS] {str(currentLoss)}", 'yellow'))
 
         # implement early stopping to avoid overfitting
         # start checking the val_loss against the threshold after patience epochs
@@ -311,7 +311,7 @@ def process_dataframe(df, i, epoch):
     #         leftover = dfCopy
     #         continue
 
-    print("[INFO] processing batch {}/{}".format(arguments.batchSize, df.shape[0]))
+    print(f"[INFO] processing batch {arguments.batchSize}/{df.shape[0]}")
     history = train_dnn(df, i, epoch, batch=arguments.batchSize)
     leftover = None
 
@@ -324,7 +324,7 @@ def eval_dnn(df):
     if arguments.drop is not None:
         for col in arguments.drop.split(","):
             drop_col(col, df)
-    
+
     if not arguments.lstm:
         print("[INFO] dropping all time related columns...")
         drop_col('Timestamp', df)
@@ -333,7 +333,7 @@ def eval_dnn(df):
 
     x_test, y_test = to_xy(df, arguments.resultColumn, classes, arguments.debug, arguments.binaryClasses)
     #print("x_test", x_test, "shape", x_test.shape)
-    
+
     #np.set_printoptions(threshold=sys.maxsize)
     #print("y_test", y_test, "shape", y_test.shape)
     #np.set_printoptions(threshold=10)
@@ -356,30 +356,30 @@ def eval_dnn(df):
             print("--------RESHAPED--------")
             print("x_test.shape", x_test.shape)
             print("y_test.shape", y_test.shape)
-    
+
     pred = model.predict(x_test)
     #print("=====>", pred)
-    
+
     if arguments.lstm:
         #print("y_test shape", y_test.shape)
         pred = pred.reshape(int((arguments.batchSize / arguments.dnnBatchSize) * y_test.shape[1]), y_test.shape[2])
-    
+
     pred = np.argmax(pred,axis=1)
     print("pred (argmax)", pred, pred.shape)
 
     y_eval = np.argmax(y_test,axis=1)
     print("y_eval (argmax)", y_eval, y_eval.shape)
-    
+
     if not arguments.lstm:    
         score = metrics.accuracy_score(y_eval, pred)
-        print("[INFO] Validation score: {}".format(colored(score, 'yellow')))
-    
+        print(f"[INFO] Validation score: {colored(score, 'yellow')}")
+
     print("============== [INFO] metrics =====================")
     baseline_results = model.evaluate(
         x_test,
         y_test,
         verbose=1
-    )  
+    )
     print("===================================================")
 
     try:
@@ -447,10 +447,9 @@ print("encodeCategoricals", arguments.encodeCategoricals)
 arguments.encodeCategoricals = False
 print("encodeCategoricals", arguments.encodeCategoricals)
 
-if not arguments.socket:
-    if arguments.read is None:
-        print("[INFO] need an input file / multi file regex. use the -read flag")
-        exit(1)
+if not arguments.socket and arguments.read is None:
+    print("[INFO] need an input file / multi file regex. use the -read flag")
+    exit(1)
 
 if arguments.binaryClasses:
     # TODO: make configurable
@@ -464,7 +463,7 @@ if arguments.classes is not None:
 # - sockets will receive byte strings
 # - csv data will come as strings 
 # on the CLI we will always receive strings
-newClasses = list()
+newClasses = []
 
 if arguments.socket:
     # convert all to byte strings
@@ -507,16 +506,8 @@ start_time = time.time()
 if not arguments.binaryClasses:
     print("MULTI-CLASS", "num classes:", len(classes))
 
-# we need to include the dropped time columns for non LSTM DNNs in the specified input shape when creating the model.
-num_time_columns = 0
-if not arguments.lstm:
-    # Connection audit records have two time columns
-    num_time_columns = 2
-
-num_dropped = 0
-if arguments.drop:
-    num_dropped = len(arguments.drop.split(","))
-
+num_time_columns = 0 if arguments.lstm else 2
+num_dropped = len(arguments.drop.split(",")) if arguments.drop else 0
 # create models
 model = create_dnn(
     # input shape: (num_features - dropped_features) [ - time_columns ]
@@ -553,5 +544,5 @@ except: # catch *all* exceptions
     print("=====================================")
     traceback.print_tb(e[2], None, None)
 
-print("--- %s seconds ---" % (time.time() - start_time))
+print(f"--- {time.time() - start_time} seconds ---")
 

@@ -10,7 +10,7 @@ import signal
 print(sys.argv)
 
 buf_size = 256
-connections = list()
+connections = []
 stop_threads = False
 stop_count = 0
 num_datagrams = 0
@@ -47,7 +47,7 @@ def signal_handler(sig, frame):
     quit()
 
 def create_unix_socket(name):
-    socket_name = "/tmp/" + name + ".sock"
+    socket_name = f"/tmp/{name}.sock"
     logging.info("Thread %s: starting to read from %s", name, socket_name)
 
     if os.path.exists(socket_name):
@@ -62,12 +62,9 @@ def create_unix_socket(name):
         global num_datagrams
         if stop_threads:
             break
-        datagram = sock.recv(buf_size)
-        if datagram:
+        if datagram := sock.recv(buf_size):
             num_datagrams += 1
             print(datagram, num_datagrams)
-            #send_alert()
-
     logging.info("Thread %s: finishing, received %d datagrams", name, num_datagrams)
 
 
@@ -93,7 +90,7 @@ if __name__ == "__main__":
     signal.signal(signal.SIGINT, signal_handler)
     print('press Ctrl+C to stop')
 
-    threads = list()
+    threads = []
     for name in sys.argv[1].split(","):
         x = threading.Thread(target=create_unix_socket, args=(name,))
         x.start()

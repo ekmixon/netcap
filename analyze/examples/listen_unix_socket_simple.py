@@ -31,7 +31,7 @@ def signal_handler(sig, frame):
         quit()
 
 def create_unix_socket(name):
-    socket_name = "/tmp/" + name + ".sock"
+    socket_name = f"/tmp/{name}.sock"
     logging.info("starting to read from %s", socket_name)
 
     if os.path.exists(socket_name):
@@ -42,8 +42,7 @@ def create_unix_socket(name):
 
     while True:
         global num_datagrams
-        datagram = sock.recv(buf_size)
-        if datagram:
+        if datagram := sock.recv(buf_size):
             num_datagrams += 1
             print(datagram, num_datagrams)
             #send_alert()

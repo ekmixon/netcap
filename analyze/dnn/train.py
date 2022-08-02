@@ -228,12 +228,23 @@ def save_model(i, epoch, batch=0):
 
     if arguments.lstm:
         if arguments.debug:
-            print("[INFO] saving model to models/lstm-epoch-{}-files-{}-{}-batch-{}-{}.h5".format(epoch.zfill(3), i, i+arguments.fileBatchSize, batch, batch+arguments.batchSize))
-        model.save('./models/lstm-epoch-{}-files-{}-{}-batch-{}-{}.h5'.format(epoch.zfill(3), i, i+arguments.fileBatchSize, batch, batch+arguments.batchSize))        
+            print(
+                f"[INFO] saving model to models/lstm-epoch-{epoch.zfill(3)}-files-{i}-{i + arguments.fileBatchSize}-batch-{batch}-{batch + arguments.batchSize}.h5"
+            )
+
+        model.save(
+            f'./models/lstm-epoch-{epoch.zfill(3)}-files-{i}-{i + arguments.fileBatchSize}-batch-{batch}-{batch + arguments.batchSize}.h5'
+        )
+
     else:
         if arguments.debug:
-            print("[INFO] saving model to models/dnn-epoch-{}-files-{}-{}.h5".format(epoch.zfill(3), i, i+arguments.fileBatchSize))
-        model.save('./models/dnn-epoch-{}-files-{}-{}.h5'.format(epoch.zfill(3), i, i+arguments.fileBatchSize))        
+            print(
+                f"[INFO] saving model to models/dnn-epoch-{epoch.zfill(3)}-files-{i}-{i + arguments.fileBatchSize}.h5"
+            )
+
+        model.save(
+            f'./models/dnn-epoch-{epoch.zfill(3)}-files-{i}-{i + arguments.fileBatchSize}.h5'
+        )        
 
 # epoch.zfill(3) is used to pad the epoch num with zeros
 # so the alphanumeric sorting preserves the correct file order: 01, 02, ..., 09, 10
@@ -242,11 +253,22 @@ def save_weights(i, epoch, batch=0):
         os.mkdir("checkpoints")
 
     if arguments.lstm:
-        print("[INFO] saving weights to checkpoints/lstm-epoch-{}-files-{}-{}-batch-{}-{}".format(epoch.zfill(3), i, i+arguments.fileBatchSize, batch, batch+arguments.batchSize))
-        model.save_weights('./checkpoints/lstm-epoch-{}-files-{}-{}-batch-{}-{}'.format(epoch.zfill(3), i, i+arguments.fileBatchSize, batch, batch+arguments.batchSize))
+        print(
+            f"[INFO] saving weights to checkpoints/lstm-epoch-{epoch.zfill(3)}-files-{i}-{i + arguments.fileBatchSize}-batch-{batch}-{batch + arguments.batchSize}"
+        )
+
+        model.save_weights(
+            f'./checkpoints/lstm-epoch-{epoch.zfill(3)}-files-{i}-{i + arguments.fileBatchSize}-batch-{batch}-{batch + arguments.batchSize}'
+        )
+
     else:
-        print("[INFO] saving weights to checkpoints/dnn-epoch-{}-files-{}-{}".format(epoch.zfill(3), i, i+arguments.fileBatchSize))
-        model.save_weights('./checkpoints/dnn-epoch-{}-files-{}-{}'.format(epoch.zfill(3), i, i+arguments.fileBatchSize))
+        print(
+            f"[INFO] saving weights to checkpoints/dnn-epoch-{epoch.zfill(3)}-files-{i}-{i + arguments.fileBatchSize}"
+        )
+
+        model.save_weights(
+            f'./checkpoints/dnn-epoch-{epoch.zfill(3)}-files-{i}-{i + arguments.fileBatchSize}'
+        )
 
 def readCSV(f):
     print("[INFO] reading file", f)
@@ -261,10 +283,16 @@ def run():
         history = None
         leftover = None
 
-        print(colored("[INFO] epoch {}/{}".format(epoch, arguments.epochs), 'yellow'))
+        print(colored(f"[INFO] epoch {epoch}/{arguments.epochs}", 'yellow'))
         for i in range(0, len(files), arguments.fileBatchSize):
 
-            print(colored("[INFO] loading file {}-{}/{} on epoch {}/{}".format(i+1, i+arguments.fileBatchSize, len(files), epoch, arguments.epochs), 'yellow'))
+            print(
+                colored(
+                    f"[INFO] loading file {i + 1}-{i + arguments.fileBatchSize}/{len(files)} on epoch {epoch}/{arguments.epochs}",
+                    'yellow',
+                )
+            )
+
             df_from_each_file = [readCSV(f) for f in files[i:(i+arguments.fileBatchSize)]]
 
             # ValueError: The truth value of a DataFrame is ambiguous. Use a.empty, a.bool(), a.item(), a.any() or a.all().
@@ -335,10 +363,13 @@ def run():
                     leftover = dfCopy
                     continue
 
-                print("[INFO] processing batch {}-{}/{}".format(batch_size, batch_size+arguments.batchSize, df.shape[0]))                    
+                print(
+                    f"[INFO] processing batch {batch_size}-{batch_size + arguments.batchSize}/{df.shape[0]}"
+                )
+
                 history = train_dnn(dfCopy, i, epoch, batch=batch_size)
                 leftover = None
-        
+
         # save model or checkpoint after every epoch
         if arguments.saveModel:
             save_model(0, str(epoch), batch=0)
@@ -350,16 +381,20 @@ def run():
             #currentLoss = lossValues[-1]
             #print("============== lossValues:", lossValues)
 
-            print(colored("[LOSS] " + str(currentLoss),'yellow') + " ==> EPOCH", epoch , "/", arguments.epochs)
+            print(
+                colored(f"[LOSS] {str(currentLoss)}", 'yellow') + " ==> EPOCH",
+                epoch,
+                "/",
+                arguments.epochs,
+            )
+
 
             # implement early stopping to avoid overfitting
             # start checking the val_loss against the threshold after patience epochs
-            if epoch >= patience:
-                #print("[CHECKING EARLY STOP]: currentLoss < min_delta ? =>", currentLoss, " < ", min_delta)
-                if currentLoss < min_delta:
-                    print("[STOPPING EARLY]: currentLoss < min_delta =>", currentLoss, " < ", min_delta)
-                    print("EPOCH", epoch)
-                    exit(0)
+            if epoch >= patience and currentLoss < min_delta:
+                print("[STOPPING EARLY]: currentLoss < min_delta =>", currentLoss, " < ", min_delta)
+                print("EPOCH", epoch)
+                exit(0)
 
 def eval_dnn(df, sizeTrain, history, model):
     global cf_total
@@ -367,7 +402,7 @@ def eval_dnn(df, sizeTrain, history, model):
     if arguments.drop is not None:
         for col in arguments.drop.split(","):
             drop_col(col, df)
-    
+
     if not arguments.lstm:
         print("[INFO] dropping all time related columns...")
         drop_col('Timestamp', df)
@@ -392,7 +427,7 @@ def eval_dnn(df, sizeTrain, history, model):
 
         if arguments.debug:
             print("[INFO] ensuring the data is a multiple of the batch size for LSTM")
-        
+
         num = len(x_test) % arguments.batchSize
         x_test = x_test[:len(x_test)-num]
 
@@ -401,7 +436,7 @@ def eval_dnn(df, sizeTrain, history, model):
 
         if arguments.debug:
             print("[INFO] reshape for using LSTM layers")
-        
+
         x_test = x_test.reshape(-1, arguments.lstmBatchSize, x_test.shape[1])
         y_test = y_test.reshape(-1, arguments.lstmBatchSize, y_test.shape[1])
 
@@ -439,7 +474,7 @@ def eval_dnn(df, sizeTrain, history, model):
     print("===================== PREDICTION ==============================")
     print("=====>", pred)
     print("===============================================================")
-    
+
     # TODO: LSTM produces different output on last layer, that will be picked up as multiple classes from argmax.
     # when using binaryClasses, determine the highest value and set all other indices to 1?
     pred = np.argmax(pred,axis=1)
@@ -449,10 +484,10 @@ def eval_dnn(df, sizeTrain, history, model):
     y_eval = np.argmax(y_test,axis=1)
     print("y_eval (argmax)", y_eval, y_eval.shape)
     print("==> y_eval unique elements:", np.unique(y_eval))
-    
+
     if not arguments.lstm:    
         score = metrics.accuracy_score(y_eval, pred)
-        print("[INFO] Validation score: {}".format(colored(score, 'yellow')))
+        print(f"[INFO] Validation score: {colored(score, 'yellow')}")
 
     unique, counts = np.unique(y_eval, return_counts=True)
     print("y_eval",dict(zip(unique, counts)))
@@ -477,7 +512,7 @@ def eval_dnn(df, sizeTrain, history, model):
     cm = confusion_matrix(y_eval,pred,labels=np.arange(len(classes)))
     print("[INFO] confusion matrix for file ")
     print(cm)
-    
+
     print('Legitimate Connections Detected (True Negatives): ', cm[0][0])
     print('Legitimate Connections Incorrectly Detected (False Positives): ', cm[0][1])
     print('Malicious Connections Missed (False Negatives): ', cm[1][0])
@@ -501,7 +536,8 @@ def eval_dnn(df, sizeTrain, history, model):
     # CSV fields: 
     # TODO: add Loss,AUC
     # True Positives,False Positives,True Negatives,False Negatives,Accuracy,Precision,Recall
-    csv = str(tp) + "," + str(fp) + "," + str(tn) + "," + str(fn) + "," + str(score) + "," + str(precision) + "," + str(recall) + ","
+    csv = f"{str(tp)},{str(fp)},{str(tn)},{str(fn)},{str(score)},{str(precision)},{str(recall)},"
+
 
     # The traditional F-measure or balanced F-score (F1 score) is the harmonic mean of precision and recall: 
     f1_score = 2 * ((precision*recall)/(precision+recall))
@@ -521,15 +557,12 @@ def eval_dnn(df, sizeTrain, history, model):
     if os.path.isfile(fname):
         # append line
         f = open(fname, 'a')
-        f.write(line + "\n")
-        f.close()
     else:
         f = open(fname, 'w+')
         # write header
         f.write("Notes,StopEpoch,MaxEpochs,File,Time,True Positives,False Positives,True Negatives,False Negatives,Accuracy,Precision,Recall,Y_EVAL,Y_PRED,SizeTrain,SizeEval,TestSize,PositiveShareTraining,PositiveShareTesting,F1\n")
-        f.write(line + "\n")
-        f.close()
-
+    f.write(line + "\n")
+    f.close()
     dirname = os.path.dirname(arguments.read)
     if dirname == "":
         # use current dir if empty
@@ -559,7 +592,7 @@ def run_in_memory(df, df_score):
     leftover = None
     global patience
     global min_delta
-        
+
     history = None
     leftover = None
 
@@ -576,12 +609,15 @@ def run_in_memory(df, df_score):
                 continue
 
             if arguments.debug:
-                print("[INFO] processing batch {}-{}/{}".format(batch_size, batch_size+arguments.batchSize, df.shape[0]))                    
-            
+                print(
+                    f"[INFO] processing batch {batch_size}-{batch_size + arguments.batchSize}/{df.shape[0]}"
+                )
+                                    
+
             history = train_dnn(dfCopy, 0, numEpoch, batch=batch_size)
             #history["epoch"] = numEpoch
             leftover = None
-    
+
             if history is not None:
                 #currentLoss = history['loss']
                 lossValues = history.history['val_loss']
@@ -592,31 +628,35 @@ def run_in_memory(df, df_score):
 
                 # implement early stopping to avoid overfitting
                 # start checking the val_loss against the threshold after patience epochs
-                if epoch >= patience:
-                    #print("[CHECKING EARLY STOP]: currentLoss < min_delta ? =>", currentLoss, " < ", min_delta)
-                    if currentLoss < min_delta:
+                if epoch >= patience and currentLoss < min_delta:
+                    if arguments.saveModel:
+                        save_model(0, str(numEpoch), batch=batch_size)
+                    else:
+                        save_weights(0, str(numEpoch), batch=batch_size)
+                    print("[STOPPING EARLY]: currentLoss < min_delta =>", currentLoss, " < ", min_delta)
+                    print("EPOCH", numEpoch)
 
-                        if arguments.saveModel:
-                            save_model(0, str(numEpoch), batch=batch_size)
-                        else:
-                            save_weights(0, str(numEpoch), batch=batch_size)
-                        print("[STOPPING EARLY]: currentLoss < min_delta =>", currentLoss, " < ", min_delta)
-                        print("EPOCH", numEpoch)
+                    # TODO 
+                    if arguments.score:
+                        eval_dnn(df_score, df.shape[0], history)
 
-                        # TODO 
-                        if arguments.score:
-                            eval_dnn(df_score, df.shape[0], history)
-                        
-                        exit(0)
-        
-        print(colored("[EPOCH] " + str(numEpoch) + " / " + str(arguments.epochs),'red') + " " + colored("[LOSS] " + str(currentLoss),'yellow'))
+                    exit(0)
+
+        print(
+            colored(
+                f"[EPOCH] {str(numEpoch)} / {str(arguments.epochs)}", 'red'
+            )
+            + " "
+            + colored(f"[LOSS] {str(currentLoss)}", 'yellow')
+        )
+
 
         # save model or checkpoint after every epoch
         if arguments.saveModel:
             save_model(0, str(numEpoch), batch=0)
         else:
             save_weights(0, str(numEpoch), batch=0)
-    
+
     print("all epochs done")
 
     if arguments.score:
@@ -648,7 +688,7 @@ buf_size = 512
 stop_count = 0
 num_datagrams = 0
 
-datagrams = list()
+datagrams = []
 
 def create_unix_socket(name):
 
@@ -667,8 +707,7 @@ def create_unix_socket(name):
 
     while True:
         global num_datagrams
-        datagram = sock.recv(buf_size)
-        if datagram:
+        if datagram := sock.recv(buf_size):
             if num_datagrams != 0 and num_datagrams % arguments.batchSize == 0:
 
                 # create the pandas DataFrame
@@ -703,27 +742,22 @@ def create_unix_socket(name):
                                                       'Category'])
 
                 process(df)
-                
+
                 #print(df)
 
                 # reset datagrams
-                datagrams = list()
+                datagrams = []
 
             for data in datagram.split(b'\n'):
                 if data != b'':
                     arr = data.split(b',')
-                    if len(arr) != 19:
-                        # TODO: make configurable for troubleshooting
-                        #print(arr, len(arr))
-
-                        # TODO: make configurable
-                        # increment epoch when receiving the CSV header again 
-                        if arr[0].startswith(b'Timestamp'): 
-                            epoch += 1
-                            print("epoch", epoch)
-                    else:
+                    if len(arr) == 19:
                         num_datagrams += 1
                         datagrams.append(arr)
+
+                    elif arr[0].startswith(b'Timestamp'): 
+                        epoch += 1
+                        print("epoch", epoch)
 
             # TODO: dispatch alert as soon we have anything to report
             #send_alert()
@@ -750,7 +784,12 @@ def process(df):
         #currentLoss = lossValues[-1]
         #print("============== lossValues:", lossValues)
 
-        print(colored("[EPOCH] " + epoch + " / " +  arguments.epochs ,'red') + " " + colored("[LOSS] " + str(currentLoss),'yellow'))
+        print(
+            colored("[EPOCH] " + epoch + " / " + arguments.epochs, 'red')
+            + " "
+            + colored(f"[LOSS] {str(currentLoss)}", 'yellow')
+        )
+
 
         # implement early stopping to avoid overfitting
         # start checking the val_loss against the threshold after patience epochs
@@ -821,7 +860,7 @@ def process_dataframe(df, i, epoch):
     #         leftover = dfCopy
     #         continue
 
-    print("[INFO] processing batch {}/{}".format(arguments.batchSize, df.shape[0]))
+    print(f"[INFO] processing batch {arguments.batchSize}/{df.shape[0]}")
     history = train_dnn(df, i, epoch, batch=arguments.batchSize)
     leftover = None
 

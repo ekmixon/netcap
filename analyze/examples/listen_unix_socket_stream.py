@@ -9,7 +9,6 @@ while True:
    server.listen(1)
    conn, addr = server.accept()
    while True:
-       datagram = conn.recv(1024)
-       if datagram:
-           print(datagram)
+      if datagram := conn.recv(1024):
+         print(datagram)
 conn.close()

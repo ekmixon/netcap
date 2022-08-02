@@ -119,13 +119,13 @@ categorical_columns = [
 def encode_categorical_columns(df, numFeatures):
     for c in categorical_columns:
         encode_text_dummy(df, c)
-    
+
     missing = numFeatures - len(df.columns)
     print("missing", missing)
     if missing > 0:
-        for m in range(0,missing+1):
-            print("adding missing-"+str(m))
-            df["missing-"+str(m)] = 0
+        for m in range(missing+1):
+            print(f"adding missing-{str(m)}")
+            df[f"missing-{str(m)}"] = 0
 
     print("len(df.columns)", len(df.columns))
     print("numFeatures", numFeatures)
@@ -137,8 +137,8 @@ def encode_text_dummy(df, name):
     print(colored("encode_text_dummy " + name, "yellow"))
     dummies = pd.get_dummies(df[name])
     for x in dummies.columns:
-        dummy_name = "{}-{}".format(name, x)
-        df[dummy_name] = dummies[x]    
+        dummy_name = f"{name}-{x}"
+        df[dummy_name] = dummies[x]
     df.drop(name, axis=1, inplace=True)
 
 encoders = {
@@ -322,19 +322,15 @@ def to_xy(df, target, labeltypes, debug, binaryClasses):
     """
     Converts a pandas dataframe to the x,y inputs that TensorFlow needs.
     """
-    result = []
-    for x in df.columns:
-        if x != target:
-            result.append(x)           
-    
+    result = [x for x in df.columns if x != target]
     # TODO: target_type unused?
     # find out the type of the target column.  Is it really this hard? :(
     #target_type = df[target].dtypes
     #target_type = target_type[0] if hasattr(target_type, '__iter__') else target_type
-    
+
     if debug:
         analyze(df)
-    
+
     return df[result].values.astype(np.float32), expand_y_values(df, target, labeltypes, debug, binaryClasses)
 
 def expand_y_values(df, target, labeltypes, debug, binaryClasses):
@@ -474,12 +470,10 @@ def file_size(file_path):
 
    
 def expand_categories(values):
-    result = []
     s = values.value_counts()
     t = float(len(values))
-    for v in s.index:
-        result.append("{}:{}%".format(v,round(100*(s[v]/t),5)))
-    return "[{}]".format(",".join(result))
+    result = [f"{v}:{round(100*(s[v]/t), 5)}%" for v in s.index]
+    return f'[{",".join(result)}]'
 
 def analyze(df):
     print()
@@ -487,19 +481,22 @@ def analyze(df):
     cols = df.columns.values
     total = float(len(df))
     good_for_dummies = {}
-    
-    print("[INFO] {} rows".format(int(total)))
+
+    print(f"[INFO] {int(total)} rows")
     for col in cols:
         uniques = df[col].unique()
         unique_count = len(uniques)
-        if 1 < unique_count and unique_count < 10:
+        if 1 < unique_count < 10:
             good_for_dummies[col] = unique_count
 
 
         if unique_count>100:
-            print("[INFO] ** {}:{} ({}%)".format(col,unique_count,round((unique_count/total)*100,5)))
+            print(
+                f"[INFO] ** {col}:{unique_count} ({round((unique_count/total)*100, 5)}%)"
+            )
+
         else:
-            print("[INFO] ** {}:{}".format(col,expand_categories(df[col])))
+            print(f"[INFO] ** {col}:{expand_categories(df[col])}")
             expand_categories(df[col])
     print("[INFO] columns with count within 2-10", good_for_dummies)
 
@@ -533,18 +530,16 @@ def encode_columns(df, result_column, lstm, debug):
         print("df.columns", df.columns, len(df.columns))
         with pd.option_context('display.max_rows', 10, 'display.max_columns', None):  # more options can be specified also
             print(df)
-    
+
     # Remove entirely incomplete columns after encoding
     # TODO: apparently this also removes columns that contain only a single identical value for all rows
     # this behavior is undocumented, and breaks our code
     # because it changes the dimensionality of the input vector for some batches
     df.dropna(inplace=True, axis=1, how="all")
 
-    if lstm:
-        # drop last elem from dataframe, in case it contains an uneven number of elements
-        if len(df) % 2 != 0:
-            print("odd number of items, dropping last one...")
-            df = df.iloc[:-1]
+    if lstm and len(df) % 2 != 0:
+        print("odd number of items, dropping last one...")
+        df = df.iloc[:-1]
 
     if debug:
         print("--------------AFTER DROPPING INCOMPLETE COLUMNS ----------------")
@@ -585,7 +580,7 @@ def create_dnn(input_dim, output_dim, loss, optimizer, lstm, numCoreLayers, core
     # Create neural network
     # Type Sequential is a linear stack of layers
     model = Sequential()
-    
+
     if lstm:
 
         # construct input shape
@@ -604,7 +599,7 @@ def create_dnn(input_dim, output_dim, loss, optimizer, lstm, numCoreLayers, core
         else:
             model.add(layers.LSTM(wrapLayerSize, input_shape=input_shape, return_sequences=True))
             model.add(LeakyReLU(alpha=0.3))
-        
+
         # add dropout layer if requested
         # The default interpretation of the dropout hyperparameter is the probability of training a given node in a layer, where 1.0 means no dropout, and 0.0 means no outputs from the layer.
         # A good value for dropout in a hidden layer is between 0.5 and 0.8. Input layers use a larger dropout rate, such as of 0.8.
@@ -612,8 +607,8 @@ def create_dnn(input_dim, output_dim, loss, optimizer, lstm, numCoreLayers, core
             model.add(Dropout(rate=0.8))
 
         # add requested number of core layers
-        for i in range(0, numCoreLayers):
-            
+        for i in range(numCoreLayers):
+
             print("[INFO] adding core layer", i)
             if relu:
                 model.add(layers.LSTM(coreLayerSize, input_shape=input_shape, return_sequences=True, activation="relu"))
@@ -665,8 +660,8 @@ def create_dnn(input_dim, output_dim, loss, optimizer, lstm, numCoreLayers, core
             model.add(LeakyReLU(alpha=0.3))
 
         # add requested number of core layers
-        for i in range(0, numCoreLayers):
-            
+        for i in range(numCoreLayers):
+
             print("[INFO] adding core layer", i)
             if relu:
                 model.add(Dense(coreLayerSize, input_dim=input_dim, kernel_initializer='normal', activation="relu"))
@@ -679,7 +674,7 @@ def create_dnn(input_dim, output_dim, loss, optimizer, lstm, numCoreLayers, core
         else:
             model.add(Dense(wrapLayerSize, input_dim=input_dim, kernel_initializer='normal'))
             model.add(LeakyReLU(alpha=0.3))
-        
+
         # dropout layer used here seems to have the best effect after some quick test runs
         # needs further experiments to confirm.
         if dropoutLayer:
@@ -690,7 +685,7 @@ def create_dnn(input_dim, output_dim, loss, optimizer, lstm, numCoreLayers, core
         else:
             model.add(Dense(1, kernel_initializer='normal'))
             model.add(LeakyReLU(alpha=0.3))
-        
+
         # TODO: tensorflow tutorial shows adding dropout before the output layer, but this blogpost says otherwise:
         # "Dropout may be implemented on any or all hidden layers in the network as well as the visible or input layer. It is not used on the output layer."
         # src: https://machinelearningmastery.com/dropout-for-regularizing-deep-neural-networks/
@@ -763,10 +758,10 @@ def check_path(path, ext):
     if ext != "":
         ext = "." + ext
 
-    # enumerate file names when the file exists already  
-    count = 1
     if os.path.exists(path):
-        new_path = os.path.splitext(path)[0] + "-" + str(count) + ext 
+        # enumerate file names when the file exists already  
+        count = 1
+        new_path = os.path.splitext(path)[0] + "-" + str(count) + ext
         while os.path.exists(new_path):
             print(new_path, "does exist")
             count += 1
@@ -820,18 +815,14 @@ def calculate_class_weights(classes, one_hot=False):
     """
     calculates the class weights 
     """
-    if one_hot is False:
-        n_classes = max(classes) + 1
-    else:
-        n_classes = len(classes[0])
-    
+    n_classes = max(classes) + 1 if one_hot is False else len(classes[0])
     class_counts = [0 for _ in range(int(n_classes))]
-    
+
     if one_hot is False:
         for label in classes:
             class_counts[label] += 1
     else:
         for label in classes:
             class_counts[np.asarray(label).tolist().index(1)] += 1
-    
+
     return {i : (1. / class_counts[i]) * float(len(classes)) / float(n_classes) for i in range(int(n_classes))}
